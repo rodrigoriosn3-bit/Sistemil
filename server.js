@@ -103,9 +103,18 @@ app.get('/payments/search', async (req, res) => {
     const responseData = pixPayments.map(p => {
       // Tenta extrair nome do pagador de várias fontes
       let name = 'N/A';
-      if (p.payer?.first_name) name = `${p.payer.first_name} ${p.payer.last_name || ''}`.trim();
-      else if (p.metadata?.payer_name) name = p.metadata.payer_name;
-      else if (p.description && p.description.toLowerCase().includes('pix de')) name = p.description;
+      if (p.payer?.first_name) {
+          name = `${p.payer.first_name} ${p.payer.last_name || ''}`.trim();
+      } else if (p.payer?.email) {
+          name = p.payer.email;
+      } else if (p.metadata?.payer_name) {
+          name = p.metadata.payer_name;
+      } else if (p.description && p.description.toLowerCase().includes('pix de')) {
+          name = p.description;
+      } else {
+          // Última tentativa: Tentar extrair do título ou descrição se disponível
+          name = p.description || 'Pagador Desconhecido';
+      }
 
       // Recupera aprovação do Metadata do Mercado Pago ou da Memória Local (Fallback)
       const approvalData = p.metadata?.approval_data || p.metadata?.approvalData || DB.approvals[p.id] || null;
