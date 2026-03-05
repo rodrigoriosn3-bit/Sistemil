@@ -81,6 +81,7 @@
                     <tr>
                         <th>Data/Hora</th>
                         <th>Pagador</th>
+                        <th>Descrição</th>
                         <th>Valor</th>
                         <th>Aprovação</th>
                     </tr>
@@ -240,8 +241,8 @@
                     <td>
                         <div style="font-weight: bold;">${p.payer_name}</div>
                         <div style="font-size: 11px; color: #666;">${p.payer_email !== 'N/A' ? p.payer_email : ''}</div>
-                        ${p.description && p.description !== p.payer_name ? `<div style="font-size: 10px; color: #999;">${p.description}</div>` : ''}
                     </td>
+                    <td style="font-size: 12px; color: #555;">${p.description || '-'}</td>
                     <td class="amount">R$ ${p.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                     <td>
                         ${isApproved ? `
