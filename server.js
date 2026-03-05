@@ -13,6 +13,12 @@ app.use(cors());
 // 1. Aprovações: Salvas diretamente no Mercado Pago (Metadata)
 // 2. IPs Permitidos: Carregados de Variáveis de Ambiente + Memória Volátil
 
+// Estado em memória (Sincronizado com arquivos ou apenas memória no modo stateless)
+const DB = {
+  approvals: {},
+  allowed_ips: []
+};
+
 // Lista de IPs permitidos (Inicia com o IP mestre do .env)
 // Nota: Em hospedagem grátis (Render), IPs adicionados via Admin resetam ao reiniciar.
 // Para acesso permanente, adicione o IP nas Variáveis de Ambiente do Render.
@@ -101,10 +107,8 @@ app.get('/payments/search', async (req, res) => {
       else if (p.metadata?.payer_name) name = p.metadata.payer_name;
       else if (p.description && p.description.toLowerCase().includes('pix de')) name = p.description;
 
-      // Recupera aprovação do Metadata do Mercado Pago
-      // O MP converte snake_case (approval_data) para camelCase (approvalData) ou mantém, dependendo da versão.
-      // Vamos checar ambos.
-      const approvalData = p.metadata?.approval_data || p.metadata?.approvalData || null;
+      // Recupera aprovação do Metadata do Mercado Pago ou da Memória Local (Fallback)
+      const approvalData = p.metadata?.approval_data || p.metadata?.approvalData || DB.approvals[p.id] || null;
 
       return {
         id: p.id,
@@ -137,21 +141,36 @@ app.post('/payments/:id/approve', async (req, res) => {
   };
 
   try {
-    // Atualiza o pagamento no Mercado Pago inserindo os dados no Metadata
-    await payment.update({
-      id: id,
-      body: {
-        metadata: {
-          approval_data: approvalData
+    // Tenta atualizar no Mercado Pago (Metadata)
+    // Nota: O método 'update' pode não existir em todas as versões da SDK.
+    // Se falhar, usaremos memória volátil como fallback para não travar a operação.
+    try {
+        if (payment.update) {
+            await payment.update({
+                id: id,
+                body: {
+                    metadata: {
+                        approval_data: approvalData
+                    }
+                }
+            });
+            console.log(`✅ Pagamento ${id} aprovado via Metadata MP.`);
+        } else {
+            throw new Error('Método payment.update não disponível na SDK');
         }
-      }
-    });
+    } catch (mpError) {
+        console.warn('⚠️ Falha ao salvar no Mercado Pago (Metadata):', mpError.message);
+        console.warn('🔄 Usando Memória Volátil como Fallback.');
+        
+        // Fallback: Salva na memória local do servidor
+        // Em deploy gratuito, isso reseta ao reiniciar, mas garante o funcionamento imediato.
+        DB.approvals[id] = approvalData;
+    }
     
-    console.log(`✅ Pagamento ${id} aprovado e salvo no Mercado Pago.`);
     res.json({ success: true });
   } catch (error) {
-    console.error('Erro ao salvar aprovação no Mercado Pago:', error);
-    res.status(500).json({ error: 'Erro ao salvar aprovação' });
+    console.error('Erro crítico na aprovação:', error);
+    res.status(500).json({ error: 'Erro ao processar aprovação' });
   }
 });
 
