@@ -1,0 +1,14 @@
+# Node modules
+node_modules/
+npm-debug.log
+
+# Environment variables
+.env
+
+# Local data (Ignored to not overwrite production data on deploy)
+approvals.json
+allowed_ips.json
+
+# IDEs
+.vscode/
+.idea/

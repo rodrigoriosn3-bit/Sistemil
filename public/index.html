@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistemil - Extrato Pix</title>
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
+    <script>
+        const mp = new MercadoPago("APP_USR-451e1a17-1f3c-4b87-81bd-683bc84ab599");
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #ffffff; color: #1a1a1a; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; background: #1a1a1a; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-bottom: 4px solid #f39c12; }
+        h1 { margin: 0; color: #ffffff; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; }
+        p { color: #ccc; font-size: 13px; }
+        .status-pill { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        .status-approved { background-color: #000; color: #2ecc71; border: 1px solid #2ecc71; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); overflow: hidden; border: 1px solid #eee; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background-color: #000000; padding: 15px; text-align: left; font-size: 13px; color: #f39c12; border-bottom: 2px solid #f39c12; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 15px; border-bottom: 1px solid #f0f0f0; font-size: 14px; vertical-align: middle; color: #333; }
+        tr:hover { background-color: #fffdf5; }
+        .amount { font-weight: bold; color: #000; font-size: 16px; }
+        .date { color: #666; font-size: 12px; font-weight: 500; }
+        .refresh-btn { background-color: #000000; color: #f39c12; border: 1px solid #f39c12; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        .refresh-btn:hover { background-color: #f39c12; color: #000; }
+        
+        /* Sistema de Alerta */
+        .btn-approve { background-color: #e67e22; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; text-transform: uppercase; transition: 0.2s; }
+        .btn-approve:hover { background-color: #d35400; transform: translateY(-1px); }
+        .btn-approve:disabled { background-color: #ccc; cursor: not-allowed; transform: none; }
+        .pending-notification { background-color: #e74c3c; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 10px; display: none; font-weight: bold; }
+        
+        /* Modal Style */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .modal-content { background-color: white; padding: 30px; border-radius: 12px; width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-top: 5px solid #e67e22; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 13px; color: #000; text-transform: uppercase; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 2px solid #eee; border-radius: 6px; box-sizing: border-box; font-size: 14px; transition: 0.2s; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #f39c12; outline: none; }
+        
+        /* Alerta Crítico */
+        #critical-alert { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; background: #c0392b; color: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 0 100px rgba(192, 57, 43, 0.9); width: 80%; max-width: 500px; border: 4px solid #fff; }
+        #critical-alert h2 { font-size: 30px; margin: 0 0 20px; animation: blinker 0.5s linear infinite; text-transform: uppercase; letter-spacing: 2px; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        /* Estilo para Visualização de Detalhes */
+        .details-popup { display: none; position: fixed; z-index: 1001; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .details-content { background-color: white; padding: 30px; border-radius: 12px; width: 450px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); border-left: 8px solid #000; }
+        .details-item { margin-bottom: 15px; border-bottom: 1px solid #f0f0f0; padding-bottom: 10px; }
+        .details-label { font-size: 11px; color: #999; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; letter-spacing: 0.5px; }
+        .details-value { font-size: 16px; color: #000; font-weight: 600; }
+        .status-ok-btn { cursor: pointer; transition: 0.2s; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee; background: #fff; display: inline-block; }
+        .status-ok-btn:hover { background-color: #000; border-color: #000; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .status-ok-btn:hover div { color: #f1c40f !important; }
+        
+        /* Link Admin */
+        a[href="/admin"] { color: #f39c12 !important; text-decoration: none; font-weight: bold; font-size: 12px; margin-left: 15px; text-transform: uppercase; border: 1px solid #f39c12; padding: 8px 15px; border-radius: 4px; transition: 0.2s; }
+        a[href="/admin"]:hover { background-color: #f39c12; color: #000 !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>Sistemil - Monitor <span id="pending-count" class="pending-notification">0</span></h1>
+                <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Controle de Recebimentos Pix.</p>
+            </div>
+            <div>
+                <button class="refresh-btn" onclick="fetchPayments()">Atualizar Agora</button>
+                <a href="/admin" style="text-decoration: none; color: #009ee3; font-weight: bold; font-size: 12px; margin-left: 15px;">Acesso Admin</a>
+            </div>
+        </header>
+
+        <div class="card">
+            <table id="payments-table">
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Pagador</th>
+                        <th>Valor</th>
+                        <th>Aprovação</th>
+                    </tr>
+                </thead>
+                <tbody id="payments-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal de Aprovação -->
+    <div id="approvalModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Aprovar Pagamento</h2>
+            <form id="approvalForm">
+                <input type="hidden" id="modal-payment-id">
+                <div class="form-group">
+                    <label>Atendente</label>
+                    <input type="text" id="attendant" required>
+                </div>
+                <div class="form-group">
+                    <label>Número do Pedido</label>
+                    <input type="text" id="orderNumber" required>
+                </div>
+                <div class="form-group">
+                    <label>Loja</label>
+                    <select id="store" required>
+                        <option value="">Selecione</option>
+                        <option value="Loja 1">Loja 1</option>
+                        <option value="Loja 2">Loja 2</option>
+                        <option value="Loja 3">Loja 3</option>
+                        <option value="Loja 4">Loja 4</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Observação</label>
+                    <textarea id="obs"></textarea>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="closeModal()" style="padding: 10px;">Cancelar</button>
+                    <button type="submit" class="refresh-btn">Aprovar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alerta Crítico -->
+    <div id="critical-alert">
+        <h2>🚨 PIX PENDENTE! 🚨</h2>
+        <p style="font-size: 18px;">Existe um pagamento pendente de aprovação no sistema.</p>
+        <p>Aprovação de novos pedidos bloqueada até a resolução.</p>
+        <button onclick="dismissCriticalAlert()" style="margin-top: 20px; padding: 10px 30px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">ENTENDI</button>
+    </div>
+
+    <!-- Pop-up de Detalhes da Aprovação -->
+    <div id="detailsPopup" class="details-popup">
+        <div class="details-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                <h2 style="margin: 0; color: #27ae60;">Dados da Aprovação</h2>
+                <span onclick="closeDetails()" style="cursor: pointer; font-size: 24px; color: #999;">&times;</span>
+            </div>
+            
+            <div class="details-item">
+                <div class="details-label">Atendente Responsável</div>
+                <div id="view-attendant" class="details-value">-</div>
+            </div>
+            
+            <div class="details-item">
+                <div class="details-label">Número do Pedido</div>
+                <div id="view-orderNumber" class="details-value">-</div>
+            </div>
+            
+            <div class="details-item">
+                <div class="details-label">Loja</div>
+                <div id="view-store" class="details-value">-</div>
+            </div>
+            
+            <div class="details-item">
+                <div class="details-label">Observações</div>
+                <div id="view-obs" class="details-value">-</div>
+            </div>
+
+            <div class="details-item" style="border: none;">
+                <div class="details-label">Data da Aprovação</div>
+                <div id="view-date" class="details-value">-</div>
+            </div>
+
+            <button onclick="closeDetails()" class="refresh-btn" style="width: 100%; margin-top: 20px; background-color: #636e72;">Fechar Visualização</button>
+        </div>
+    </div>
+
+    <script>
+        let currentPayments = [];
+        let alertCount = 0;
+        let alertInterval = null;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Som agudo e alto
+        function playHighAlertSound() {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = 'square'; // Som mais "agressivo"
+            oscillator.frequency.setValueAtTime(2500, audioCtx.currentTime); // Frequência alta
+            gainNode.gain.setValueAtTime(1.0, audioCtx.currentTime); // Volume máximo
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+            setTimeout(() => oscillator.stop(), 1000); // Toca por 1 segundo
+        }
+
+        async function fetchPayments() {
+            try {
+                const response = await fetch('/payments/search');
+                currentPayments = await response.json();
+                renderPayments();
+                checkPendingStatus();
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+
+        function renderPayments() {
+            const body = document.getElementById('payments-body');
+            const pendingList = currentPayments.filter(p => !p.approval && p.status === 'approved').sort((a,b) => new Date(a.date) - new Date(b.date));
+            const oldestPendingId = pendingList.length > 0 ? pendingList[0].id : null;
+
+            body.innerHTML = currentPayments.map(p => {
+                const isApproved = !!p.approval;
+                const isOldestPending = p.id === oldestPendingId;
+                const isBlocked = alertCount >= 5 && !isApproved && !isOldestPending;
+
+                return `
+                <tr style="${!isApproved ? 'background-color: #fff8e1;' : ''}">
+                    <td class="date">${new Date(p.date).toLocaleString('pt-BR')}</td>
+                    <td>
+                        <div style="font-weight: bold;">${p.payer_name}</div>
+                        <div style="font-size: 11px; color: #666;">${p.payer_email !== 'N/A' ? p.payer_email : ''}</div>
+                    </td>
+                    <td class="amount">R$ ${p.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    <td>
+                        ${isApproved ? `
+                            <div class="status-ok-btn" onclick="showDetails('${p.id}')">
+                                <div style="color: #000; font-size: 11px;">
+                                    <strong>✅ OK</strong><br>
+                                    Pedido #${p.approval.orderNumber}
+                                </div>
+                            </div>
+                        ` : `
+                            <button class="btn-approve" 
+                                ${isBlocked ? 'disabled' : ''} 
+                                onclick="handleApproveClick('${p.id}', '${oldestPendingId}')">
+                                Aprovar
+                            </button>
+                        `}
+                    </td>
+                </tr>
+            `}).join('');
+
+            const badge = document.getElementById('pending-count');
+            badge.textContent = pendingList.length;
+            badge.style.display = pendingList.length > 0 ? 'inline-block' : 'none';
+        }
+
+        function handleApproveClick(paymentId, oldestId) {
+            if (alertCount >= 5 && paymentId !== oldestId) {
+                const oldestOrder = currentPayments.find(p => p.id === oldestId);
+                alert(`⚠️ BLOQUEIO: Você deve aprovar o Pix de R$ ${oldestOrder.amount} (${oldestOrder.payer_name}) antes de aprovar este.`);
+                return;
+            }
+            openModal(paymentId);
+        }
+
+        function checkPendingStatus() {
+            const hasPending = currentPayments.some(p => !p.approval && p.status === 'approved');
+            
+            if (hasPending) {
+                if (!alertInterval) {
+                    startAlertCycle();
+                }
+            } else {
+                stopAlertCycle();
+            }
+        }
+
+        function startAlertCycle() {
+            triggerAlert(); // Alerta imediato
+            alertInterval = setInterval(triggerAlert, 3 * 60 * 1000); // A cada 3 minutos
+        }
+
+        function triggerAlert() {
+            alertCount++;
+            document.getElementById('critical-alert').style.display = 'block';
+            playHighAlertSound();
+            console.log(`Alerta #${alertCount} disparado!`);
+            renderPayments(); // Atualiza estado dos botões (bloqueio se count >= 5)
+        }
+
+        function dismissCriticalAlert() {
+            document.getElementById('critical-alert').style.display = 'none';
+        }
+
+        function stopAlertCycle() {
+            clearInterval(alertInterval);
+            alertInterval = null;
+            alertCount = 0;
+            dismissCriticalAlert();
+            renderPayments();
+        }
+
+        function openModal(id) {
+            document.getElementById('modal-payment-id').value = id;
+            document.getElementById('approvalModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('approvalModal').style.display = 'none';
+        }
+
+        function showDetails(paymentId) {
+            const payment = currentPayments.find(p => p.id.toString() === paymentId.toString());
+            if (payment && payment.approval) {
+                document.getElementById('view-attendant').textContent = payment.approval.attendant;
+                document.getElementById('view-orderNumber').textContent = `#${payment.approval.orderNumber}`;
+                document.getElementById('view-store').textContent = payment.approval.store;
+                document.getElementById('view-obs').textContent = payment.approval.description || 'Nenhuma observação';
+                document.getElementById('view-date').textContent = new Date(payment.approval.approvedAt).toLocaleString('pt-BR');
+                
+                document.getElementById('detailsPopup').style.display = 'flex';
+            }
+        }
+
+        function closeDetails() {
+            document.getElementById('detailsPopup').style.display = 'none';
+        }
+
+        // Fecha modal ao clicar fora
+        window.onclick = function(event) {
+            const approvalModal = document.getElementById('approvalModal');
+            const detailsPopup = document.getElementById('detailsPopup');
+            if (event.target == approvalModal) closeModal();
+            if (event.target == detailsPopup) closeDetails();
+        }
+
+        document.getElementById('approvalForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('modal-payment-id').value;
+            const data = {
+                attendant: document.getElementById('attendant').value,
+                orderNumber: document.getElementById('orderNumber').value,
+                store: document.getElementById('store').value,
+                description: document.getElementById('obs').value
+            };
+
+            const response = await fetch(`/payments/${id}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                closeModal();
+                fetchPayments();
+            }
+        });
+
+        fetchPayments();
+        setInterval(fetchPayments, 30000); // Refresh da lista
+    </script>
+</body>
+</html>
