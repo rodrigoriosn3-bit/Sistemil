@@ -19,16 +19,25 @@ const DB = {
   allowed_ips: []
 };
 
-// Lista de IPs permitidos (Inicia com o IP mestre do .env)
+// Lista de IPs permitidos (Inicia com o IP mestre do .env e IPs fixos solicitados)
 // Nota: Em hospedagem grátis (Render), IPs adicionados via Admin resetam ao reiniciar.
-// Para acesso permanente, adicione o IP nas Variáveis de Ambiente do Render.
-let allowedIps = [];
+const FIXED_IPS = [
+  "179.241.212.87",
+  "181.192.123.17",
+  "172.225.100.150",
+  "172.225.83.34",
+  "104.28.63.113",
+  "181.192.123.15",
+  "177.72.138.128"
+];
+
+let allowedIps = [...FIXED_IPS];
 
 // Carrega IPs do ambiente (separados por vírgula)
 const loadEnvIps = () => {
   const envIps = process.env.ALLOWED_IPS ? process.env.ALLOWED_IPS.split(',').map(ip => ip.trim()) : [];
-  // Mescla com os atuais, evitando duplicatas
-  allowedIps = [...new Set([...allowedIps, ...envIps])];
+  // Mescla com os atuais e fixos, evitando duplicatas
+  allowedIps = [...new Set([...FIXED_IPS, ...allowedIps, ...envIps])];
 };
 
 // --- MIDDLEWARES ---
